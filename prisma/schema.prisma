@@ -3,9 +3,30 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTABLE
+  DECLINED
+  ACCEPTABLE_WITH_CONDITIONS
+  CONSULT_REQUIRED
+  TRANSPORT_DECIDED
+  CANCELLED
+}
+
+enum MessageSender {
+  EMS
+  HOSPITAL
+}
+
+enum MessageType {
+  ADDITIONAL_INFO
+  QUESTION
+  CONDITION
+  NOTE
 }
 
 model Case {
@@ -19,6 +40,8 @@ model Case {
   vitals    CaseVital[]
   chestPain SymptomChestPain?
   paresis   SymptomParesis?
+  patient   CasePatient?
+  requests  HospitalRequest[]
 }
 
 model CaseVital {
@@ -71,4 +94,84 @@ model SymptomParesis {
   updatedAt      DateTime @updatedAt
 
   case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+model CasePatient {
+  id             String   @id @default(cuid())
+  caseId         String   @unique
+  name           String?
+  isNameUnknown  Boolean  @default(false)
+  birthDate      String?
+  isBirthUnknown Boolean  @default(false)
+  age            Int
+  sex            String
+  address        String?
+  phoneNumber    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+model Hospital {
+  id         String   @id @default(cuid())
+  name       String
+  prefecture String
+  city       String
+  address    String
+  latitude   Float
+  longitude  Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  departments HospitalDepartment[]
+  requests    HospitalRequest[]
+
+  @@index([prefecture, city])
+  @@index([name])
+}
+
+model HospitalDepartment {
+  id         String   @id @default(cuid())
+  hospitalId String
+  department String
+  createdAt  DateTime @default(now())
+
+  hospital Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+
+  @@index([department])
+  @@index([hospitalId])
+}
+
+model HospitalRequest {
+  id               String        @id @default(cuid())
+  caseId           String
+  hospitalId       String
+  status           RequestStatus @default(PENDING)
+  conditionsText   String?
+  conditionsAck    Boolean       @default(false)
+  conditionsAckAt  DateTime?
+  decisionAt       DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  case      Case             @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  hospital  Hospital         @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  messages  RequestMessage[]
+
+  @@index([caseId])
+  @@index([hospitalId])
+}
+
+model RequestMessage {
+  id          String       @id @default(cuid())
+  requestId   String
+  sender      MessageSender
+  messageType MessageType
+  body        String
+  createdAt   DateTime     @default(now())
+
+  request HospitalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
 }
