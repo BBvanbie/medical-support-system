@@ -10,6 +10,65 @@ datasource db {
 
 model Case {
   id        String   @id @default(cuid())
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
+  purgeAt   DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  vitals    CaseVital[]
+  chestPain SymptomChestPain?
+  paresis   SymptomParesis?
+}
+
+model CaseVital {
+  id                String    @id @default(cuid())
+  caseId            String
+  sequence          Int
+  isActive          Boolean   @default(false)
+  copiedFromVitalId String?
+  measuredAt        DateTime?
+  jcs               Int
+  gcsE              Int?
+  gcsV              Int?
+  gcsM              Int?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  case            Case       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  copiedFromVital CaseVital? @relation("VitalCopy", fields: [copiedFromVitalId], references: [id], onDelete: SetNull)
+  copiedToVitals  CaseVital[] @relation("VitalCopy")
+
+  @@unique([caseId, sequence])
+  @@index([caseId])
+}
+
+model SymptomChestPain {
+  id        String   @id @default(cuid())
+  caseId    String   @unique
+  present   Boolean?
+  location  String?
+  quality   String?
+  nrs       String?
+  migrated  Boolean?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+model SymptomParesis {
+  id             String   @id @default(cuid())
+  caseId         String   @unique
+  present        Boolean?
+  bodyPart       String?
+  laterality     String?
+  severity       String?
+  onsetPattern   String?
+  progression    String?
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 }
